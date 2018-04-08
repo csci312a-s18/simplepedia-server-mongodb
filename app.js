@@ -17,25 +17,48 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
-const articles = {}; // Create in memory storage of the articles
+let db; // MongoDB client
 
 app.get('/articles', (request, response, next) => {
-  response.send(Object.values(articles));
+  db.collection('articles').find().toArray().then((documents) => {
+    response.send(documents);
+  }, next); // <- Notice the "next" function and catch handler
 });
 
-app.post('/articles/', (request, response, next) => {
-  articles[request.params.id] = request.body;
-  response.send(request.body);
+app.post('/articles', (request, response, next) => {
+  const newArticle = Object.assign({ extract: '' }, request.body);
+  if (!newArticle.edited) {
+    response.sendStatus(400);
+    return;
+  }
+  db.collection('articles').insertOne(newArticle).then((result) => {
+    response.send(result.ops[0]);
+  }, next);
 });
 
 app.delete('/articles/:id', (request, response, next) => {
-  delete articles[request.params.id];
-  response.sendStatus(200);
+  db.collection('articles')
+    .deleteOne({ _id: ObjectID.createFromHexString(request.params.id) })
+    .then(() => {
+      response.sendStatus(200);
+    }, next);
 });
 
 app.put('/articles/:id', (request, response, next) => {
-  articles[request.params.id] = request.body;
-  response.send(request.body);
+  const updatedArticle = Object.assign(
+    { extract: '' },
+    request.body,
+    { _id: ObjectID.createFromHexString(request.params.id) },
+  );
+  db.collection('articles')
+    .findOneAndUpdate(
+      { _id: updatedArticle._id },
+      { $set: updatedArticle },
+      { returnOriginal: false },
+    )
+    .then((result) => {
+      response.send(result.value);
+    }, next);
 });
 
 // A very simple error handler. In a production setting you would
@@ -55,6 +78,5 @@ app.use((error, request, response, next) => {
 
 module.exports = {
   app,
-  articles,
   setDb: (newDb) => { db = newDb; }, // eslint-disable-line no-undef
 };

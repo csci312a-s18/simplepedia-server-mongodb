@@ -1,15 +1,21 @@
 /* eslint-disable no-console */
-const fs = require('fs');
-const path = require('path');
 const http = require('http');
-const { app, articles } = require('./app');
+const url = require('url');
+const { MongoClient } = require('mongodb');
+const { app, setDb } = require('./app');
 
-fs.readFile(path.join(__dirname, 'seed.json'), (err, contents) => {
-  const data = JSON.parse(contents);
-  data.forEach((article, index) => {
-    articles[index + 1] = Object.assign({ _id: index + 1 }, article);
-  });
+const mongoURL = process.env.MONGODB_URI || 'mongodb://localhost:5000/simplepedia';
 
-  const server = http.createServer(app).listen(process.env.PORT || 3001);
-  console.log('Listening on port %d', server.address().port);
+MongoClient.connect(mongoURL, (err, database) => {
+  if (err) {
+    console.error(err);
+  } else {
+    // Don't start server unless we have successfully connect to the database
+    setDb(database.db(url.parse(mongoURL).pathname.slice(1))); // Extract database name
+
+    // We create the server explicitly (instead of using app.listen()) to
+    // provide an example of how we would create a https server
+    const server = http.createServer(app).listen(process.env.PORT || 3001);
+    console.log('Listening on port %d', server.address().port);
+  }
 });
