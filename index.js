@@ -11,7 +11,15 @@ MongoClient.connect(mongoURL, (err, database) => {
     console.error(err);
   } else {
     // Don't start server unless we have successfully connect to the database
-    setDb(database.db(url.parse(mongoURL).pathname.slice(1))); // Extract database name
+    const db = database.db(url.parse(mongoURL).pathname.slice(1)); // Extract database name
+
+    // Add unique index on titles
+    db.collection('articles').createIndex(
+      { title: 1 },
+      { unique: true },
+    );
+
+    setDb(db); // set db variable in app.js
 
     // We create the server explicitly (instead of using app.listen()) to
     // provide an example of how we would create a https server
